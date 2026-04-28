@@ -21,7 +21,7 @@ export default function Home() {
   const currentModel = aiModels.find((m) => m.id === selectedModel);
 
   return (
-    <main className="flex h-screen relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-purple-50 dark:from-[#050510] dark:via-[#0a0a2a] dark:to-[#150525] transition-colors duration-500">
+    <main className="flex max-h-[calc(100vh-3rem)] min-h-[calc(100vh-3rem)] relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-purple-50 dark:from-[#050510] dark:via-[#0a0a2a] dark:to-[#150525] transition-colors duration-500">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       {/* Main Content */}
