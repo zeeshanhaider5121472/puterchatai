@@ -2,14 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '@/context/AppContext';
-import { aiModels } from '@/lib/models'; // Ensure this matches your export name
+import { aiModels } from '@/lib/models';
 import { ChevronDown, Search } from 'lucide-react';
 
 export default function ModelSelect() {
   const { selectedModel, setSelectedModel } = useAppContext();
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'Qwen' | 'GLM'>('Qwen');
+  const [activeTab, setActiveTab] = useState<'Qwen' | 'GLM' | 'Claude'>('Qwen');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const currentModel = aiModels.find(m => m.id === selectedModel);
@@ -32,7 +32,12 @@ export default function ModelSelect() {
 
   // Auto-switch tab if user selects a model from the other provider
   useEffect(() => {
-    if (currentModel) setActiveTab(currentModel.provider as 'Qwen' | 'GLM');
+    if (currentModel) {
+      const provider = currentModel.provider as 'Qwen' | 'GLM' | 'Claude';
+      if (['Qwen', 'GLM', 'Claude'].includes(provider)) {
+        setActiveTab(provider);
+      }
+    }
   }, [currentModel]);
 
   return (
@@ -52,7 +57,7 @@ export default function ModelSelect() {
         <div className="absolute z-50 w-full mt-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl overflow-hidden">
           {/* Tabs */}
           <div className="flex border-b border-zinc-200 dark:border-zinc-800">
-            {(['Qwen', 'GLM'] as const).map(tab => (
+            {(['Qwen', 'GLM', 'Claude'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); setSearch(''); }}

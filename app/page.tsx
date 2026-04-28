@@ -15,17 +15,14 @@ const ChatInput = dynamic(() => import("@/components/ChatInput"), {
 
 export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { selectedModel, user, signOutPuter } = useAppContext();
-
+  const { selectedModel, user, signOutPuter, openSidebar } = useAppContext();
   const currentModel = aiModels.find((m) => m.id === selectedModel);
 
   return (
-    <main className="flex max-h-[calc(100vh-3rem)] min-h-[calc(100vh-3rem)] relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-purple-50 dark:from-[#050510] dark:via-[#0a0a2a] dark:to-[#150525] transition-colors duration-500">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+    <main className="flex h-[100dvh] relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-purple-50 dark:from-[#050510] dark:via-[#0a0a2a] dark:to-[#150525] transition-colors duration-500">
+      <Sidebar />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col relative z-10 w-full max-w-full md:max-w-4xl mx-auto">
+      <div className="flex flex-col relative z-10 w-full md:max-w-4xl md:mx-auto h-full">
         {/* Header */}
         <motion.header
           initial={{ y: -50 }}
@@ -39,15 +36,15 @@ export default function Home() {
              shadow-lg 
              z-10"
         >
-          <div className="flex items-center gap-3 md:gap-4">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-xl transition-colors text-zinc-800 dark:text-zinc-200"
+              onClick={openSidebar}
+              className="p-2 hover:bg-black/10 dark:hover:bg-white/10 rounded-xl text-zinc-800 dark:text-zinc-200"
             >
               <Menu size={20} />
             </button>
             <h1 className="text-lg md:text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-400 dark:to-blue-500 text-transparent bg-clip-text">
-              Galaxy AI
+              Shia AI
             </h1>
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full glass text-xs">
               <Cpu size={12} className="text-purple-600 dark:text-purple-400" />
@@ -57,11 +54,11 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {user && (
               <button
                 onClick={signOutPuter}
-                className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors"
+                className="p-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"
                 title="Sign Out"
               >
                 <LogOut size={20} />
@@ -69,17 +66,14 @@ export default function Home() {
             )}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-zinc-800 dark:text-zinc-300"
+              className="p-2 rounded-xl hover:bg-black/10 dark:hover:bg-white/10 text-zinc-800 dark:text-zinc-300"
             >
               <Settings size={20} />
             </button>
           </div>
         </motion.header>
 
-        {/* Chat Body */}
         <ChatArea />
-
-        {/* Chat Input */}
         <ChatInput />
       </div>
 
