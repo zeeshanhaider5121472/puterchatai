@@ -8,10 +8,10 @@ import { aiModels } from "@/lib/models";
 import { motion } from "framer-motion";
 import { Cpu, LogOut, Menu, Settings } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useState } from "react";
 const ChatInput = dynamic(() => import("@/components/ChatInput"), {
   ssr: false,
 });
-import { useState } from "react";
 
 export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -21,7 +21,7 @@ export default function Home() {
   const currentModel = aiModels.find((m) => m.id === selectedModel);
 
   return (
-    <main className="flex h-screen relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-purple-50 dark:from-[#050510] dark:via-[#0a0a2a] dark:to-[#150525] transition-colors duration-500">
+    <main className="flex max-h-[calc(100vh-64px)] h-[calc(100vh-64px)] relative overflow-hidden bg-gradient-to-br from-white via-slate-50 to-purple-50 dark:from-[#050510] dark:via-[#0a0a2a] dark:to-[#150525] transition-colors duration-500">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
       {/* Main Content */}
@@ -31,7 +31,13 @@ export default function Home() {
           initial={{ y: -50 }}
           animate={{ y: 0 }}
           transition={{ type: "spring", stiffness: 100 }}
-          className="flex items-center justify-between px-4 md:px-6 py-4 glass border-b border-black/10 dark:border-white/10 z-10"
+          className="flex items-center justify-between px-4 md:px-6 py-4 
+             rounded-xl 
+             border border-white/20 dark:border-white/10 
+             bg-white/30 dark:bg-white/5 
+             backdrop-blur-md 
+             shadow-lg 
+             z-10"
         >
           <div className="flex items-center gap-3 md:gap-4">
             <button
