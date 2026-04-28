@@ -21,14 +21,14 @@ interface Message {
   content: string | MessageContent[];
   textPreview: string;
   imageUrl?: string;
-  thinkingContent?: string | null; // For thinking models
+  thinkingContent?: string | null;
 }
 
 interface Chat {
   id: string;
   title: string;
   messages: Message[];
-  modelId: string; // Tracks which model this chat belongs to
+  modelId: string;
 }
 
 interface AIConfig {
@@ -107,7 +107,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const activeChat = chats.find((c) => c.id === activeChatId);
   const messages = activeChat?.messages || [];
 
-  // Auto-adjust params when model changes
   useEffect(() => {
     const defaults = modelDefaults[selectedModel];
     if (defaults) setAiConfig((prev) => ({ ...prev, ...defaults }));
@@ -115,6 +114,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const saveChats = useCallback(
     async (chatsData: Chat[], activeId: string | null) => {
+      if (typeof window === "undefined") return;
       const strippedChats = chatsData.map((chat) => ({
         ...chat,
         messages: chat.messages.map((msg) => {
@@ -146,6 +146,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const loadChats = useCallback(async () => {
+    if (typeof window === "undefined") return;
     let loadedData = null;
     if (user && (window as any).puter) {
       try {
@@ -180,7 +181,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const loginToPuter = async () => {
-    if ((window as any).puter) {
+    if (typeof window !== "undefined" && (window as any).puter) {
       try {
         const userData = await (window as any).puter.ui.authenticateWithPuter();
         if (userData?.username) setUser({ username: userData.username });
@@ -188,8 +189,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (e) {}
     }
   };
+
   const signOutPuter = async () => {
-    if ((window as any).puter) {
+    if (typeof window !== "undefined" && (window as any).puter) {
       try {
         await (window as any).puter.auth.signOut();
         setUser(null);
@@ -198,6 +200,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const init = async () => {
       const sTheme = localStorage.getItem("galaxy-theme");
       if (sTheme) setDarkMode(sTheme === "dark");
@@ -218,28 +221,37 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (isHydrated) loadChats();
   }, [isHydrated, user]);
+
   useEffect(() => {
     if (isHydrated && chats.length > 0) saveChats(chats, activeChatId);
   }, [chats, activeChatId, isHydrated, saveChats]);
+
   useEffect(() => {
-    if (isHydrated) localStorage.setItem("galaxy-model", selectedModel);
+    if (isHydrated && typeof window !== "undefined")
+      localStorage.setItem("galaxy-model", selectedModel);
   }, [selectedModel, isHydrated]);
+
   useEffect(() => {
-    if (isHydrated)
+    if (isHydrated && typeof window !== "undefined")
       localStorage.setItem("galaxy-ai-config", JSON.stringify(aiConfig));
   }, [aiConfig, isHydrated]);
+
   useEffect(() => {
+    if (typeof window === "undefined") return;
     document.documentElement.classList.toggle("dark", darkMode);
     localStorage.setItem("galaxy-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
+
   useEffect(() => {
+    if (typeof window === "undefined") return;
     localStorage.setItem("galaxy-custom-modes", JSON.stringify(customModes));
   }, [customModes]);
+
   useEffect(() => {
+    if (typeof window === "undefined") return;
     localStorage.setItem("galaxy-system-prompt", systemPrompt);
   }, [systemPrompt]);
 
-  // sync MODEL: When user clicks a chat in the sidebar, change the active model to match that chat
   useEffect(() => {
     if (activeChatId && chats.length > 0) {
       const activeChat = chats.find((c) => c.id === activeChatId);
@@ -275,9 +287,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const deleteChat = (id: string) => {
     setChats((prev) => {
       const updated = prev.filter((c) => c.id !== id);
-
       if (updated.length === 0) {
-        // If we deleted the last chat, create a fresh one directly inside the state update
         const freshChat: Chat = {
           id: crypto.randomUUID(),
           title: "New Chat",
@@ -285,9 +295,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           modelId: selectedModel,
         };
         setActiveChatId(freshChat.id);
-        return [freshChat]; // Return the array with the new chat directly
+        return [freshChat];
       } else {
-        // If we still have chats, just update the active ID if we deleted the active one
         if (activeChatId === id) {
           setActiveChatId(updated[0].id);
         }
@@ -311,11 +320,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     ) => {
       if ((!text.trim() && !attachment) || isTyping) return;
 
-      // FIX: Calculate the target chat ID synchronously to prevent race conditions
       let targetChatId = activeChatId;
       const currentActiveChat = chats.find((c) => c.id === activeChatId);
 
-      // If the model has changed or no active chat exists, create a new chat inline
       if (
         !targetChatId ||
         (currentActiveChat && currentActiveChat.modelId !== selectedModel)
@@ -329,7 +336,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         };
         setChats((prev) => [newChat, ...prev]);
         setActiveChatId(newId);
-        targetChatId = newId; // Use the new ID immediately for the rest of this function!
+        targetChatId = newId;
       }
 
       const isImageGen = aiModels.find(
@@ -355,7 +362,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         imageUrl: attachment?.type === "image" ? attachment.content : undefined,
       };
 
-      // Update the correct chat using targetChatId
       setChats((prev) =>
         prev.map((c) =>
           c.id === targetChatId
@@ -383,7 +389,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         let thinkingText = "";
 
         if (isImageGen) {
-          // Image Generation Logic
           const imageResponse = await puter.ai.txt2img(text, {
             model: selectedModel,
           });
@@ -391,7 +396,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
           let imageUrl = "";
 
-          // FIX: Handle Puter's Image Object, HTML string, or Base64
           if (typeof imageResponse === "string") {
             if (
               imageResponse.startsWith("http") ||
@@ -402,17 +406,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               imageResponse.includes("<img") &&
               imageResponse.includes('src="')
             ) {
-              // If it returned an HTML string, extract the src
               const match = imageResponse.match(/src="([^"]+)"/);
               imageUrl = match ? match[1] : "";
             } else {
-              // Assume raw base64
               imageUrl = `data:image/png;base64,${imageResponse}`;
             }
           } else if (imageResponse instanceof Blob) {
             imageUrl = URL.createObjectURL(imageResponse);
           } else if (imageResponse?.src) {
-            // FIX: Puter.js often returns an HTMLImageElement or Object with a .src property
             imageUrl = imageResponse.src;
           } else if (imageResponse?.url) {
             imageUrl = imageResponse.url;
@@ -436,7 +437,79 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 : c,
             ),
           );
-          return; // Stop here for image gen
+          return;
+        } else {
+          // ---- RESTORED TEXT/CHAT LOGIC ----
+          const currentMessages =
+            chats.find((c) => c.id === targetChatId)?.messages || [];
+          const apiMessages = [...currentMessages, userMessage].map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
+
+          if (systemPrompt.trim()) {
+            apiMessages.unshift({ role: "system", content: systemPrompt });
+          }
+
+          const options: any = {
+            model: selectedModel,
+            messages: apiMessages,
+            temperature: aiConfig.temperature,
+            max_tokens: aiConfig.maxTokens,
+            frequency_penalty: aiConfig.frequencyPenalty,
+            presence_penalty: aiConfig.presencePenalty,
+            signal: signal,
+          };
+
+          // ALWAYS use apiMessages array to maintain conversation memory
+          let response = await puter.ai.chat(apiMessages, options);
+
+          if (signal.aborted) return;
+
+          if (response?.message?.reasoning_content) {
+            thinkingText = response.message.reasoning_content;
+          }
+
+          let rawContent =
+            typeof response === "string"
+              ? response
+              : response?.message?.content || "No response.";
+          if (typeof rawContent === "string") {
+            aiResponseText = rawContent;
+          } else if (Array.isArray(rawContent)) {
+            aiResponseText = rawContent
+              .filter((part: any) => part.type === "text" && part.text)
+              .map((part: any) => part.text)
+              .join("\n");
+          } else if (typeof rawContent === "object" && rawContent !== null) {
+            aiResponseText = JSON.stringify(rawContent);
+          }
+          if (!aiResponseText.trim()) aiResponseText = "No response.";
+
+          const aiMessage: Message = {
+            role: "assistant",
+            content: aiResponseText,
+            textPreview: aiResponseText,
+            thinkingContent: thinkingText || null,
+          };
+
+          setChats((prev) =>
+            prev.map((c) =>
+              c.id === targetChatId
+                ? {
+                    ...c,
+                    messages: [
+                      ...c.messages.filter(
+                        (m) =>
+                          m.role !== "assistant" ||
+                          m.textPreview !== "Thinking...",
+                      ),
+                      aiMessage,
+                    ],
+                  }
+                : c,
+            ),
+          );
         }
       } catch (error: any) {
         if (error.name === "AbortError") return;
