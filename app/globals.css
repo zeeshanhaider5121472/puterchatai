@@ -3,28 +3,39 @@
 @tailwind utilities;
 
 :root {
-  --bg-galaxy: #f8f7ff; 
-  --bg-galaxy-dark: #050510;
+  height: 100vh;
+  height: 100dvh; /* Modern browsers will use this, overriding 100vh */
 }
 
 body {
-  background: var(--bg-galaxy);
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
-
 .dark body {
   background: var(--bg-galaxy-dark);
 }
 
 .galaxy-bg::before {
-  content: '';
+  content: "";
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-image: 
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
     radial-gradient(2px 2px at 20px 30px, #eee, transparent),
-    radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(
+      2px 2px at 40px 70px,
+      rgba(255, 255, 255, 0.8),
+      transparent
+    ),
     radial-gradient(1px 1px at 90px 40px, #fff, transparent),
-    radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.6), transparent),
+    radial-gradient(
+      1px 1px at 130px 80px,
+      rgba(255, 255, 255, 0.6),
+      transparent
+    ),
     radial-gradient(2px 2px at 160px 30px, #ddd, transparent);
   background-size: 200px 100px;
   pointer-events: none;
@@ -52,6 +63,13 @@ body {
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
 }
 
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.3); border-radius: 10px; }
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 150, 150, 0.3);
+  border-radius: 10px;
+}
