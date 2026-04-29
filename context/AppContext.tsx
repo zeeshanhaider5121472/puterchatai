@@ -169,33 +169,77 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [user, selectedModel]);
 
   const checkAuth = async () => {
-    if (typeof window !== "undefined" && (window as any).puter) {
+    if (typeof window === "undefined") return;
+
+    // Wait for Puter to be available (max 3 seconds)
+    let attempts = 0;
+    while (!(window as any).puter?.auth && attempts < 12) {
+      await new Promise((res) => setTimeout(res, 250));
+      attempts++;
+    }
+    if ((window as any).puter?.auth) {
       try {
         const currentUser = await (window as any).puter.auth.getUser();
         if (currentUser?.username) setUser({ username: currentUser.username });
         else setUser(null);
       } catch (e) {
+        // Not logged in, which is expected
         setUser(null);
       }
+    } else {
+      setUser(null);
     }
   };
 
   const loginToPuter = async () => {
-    if (typeof window !== "undefined" && (window as any).puter) {
-      try {
-        const userData = await (window as any).puter.ui.authenticateWithPuter();
-        if (userData?.username) setUser({ username: userData.username });
-        else await checkAuth();
-      } catch (e) {}
+    if (typeof window === "undefined") return;
+
+    // Wait for Puter to be available (max 5 seconds)
+    let attempts = 0;
+    while (!(window as any).puter?.ui && attempts < 20) {
+      await new Promise((res) => setTimeout(res, 250));
+      attempts++;
+    }
+
+    if (!(window as any).puter?.ui) {
+      alert(
+        "Puter SDK is taking too long to load. Please check your internet connection and refresh.",
+      );
+      return;
+    }
+
+    try {
+      const userData = await (window as any).puter.ui.authenticateWithPuter();
+      if (userData?.username) {
+        setUser({ username: userData.username });
+      } else {
+        await checkAuth();
+      }
+    } catch (e: any) {
+      console.error("Auth error:", e);
+      // Check if it's a popup blocked error
+      if (e.message?.includes("popup") || e.message?.includes("window")) {
+        alert("Please allow popups for this site to sign in with Puter.");
+      }
     }
   };
 
   const signOutPuter = async () => {
-    if (typeof window !== "undefined" && (window as any).puter) {
+    if (typeof window === "undefined") return;
+
+    let attempts = 0;
+    while (!(window as any).puter?.auth && attempts < 10) {
+      await new Promise((res) => setTimeout(res, 250));
+      attempts++;
+    }
+
+    if ((window as any).puter?.auth) {
       try {
         await (window as any).puter.auth.signOut();
         setUser(null);
-      } catch (e) {}
+      } catch (e) {
+        console.error("Sign out error:", e);
+      }
     }
   };
 
@@ -382,8 +426,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const signal = abortControllerRef.current.signal;
 
       try {
+        let attempts = 0;
+        while (!(window as any).puter && attempts < 20) {
+          await new Promise((res) => setTimeout(res, 250));
+          attempts++;
+        }
         const puter = (window as any).puter;
-        if (!puter) throw new Error("Puter.js not loaded");
+        if (!puter)
+          throw new Error("Puter SDK failed to load. Please refresh the page.");
 
         let aiResponseText = "";
         let thinkingText = "";

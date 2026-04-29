@@ -1,14 +1,20 @@
-import type { Metadata } from "next";
+import { AppProvider } from "@/context/AppContext";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { AppProvider } from "@/context/AppContext";
-import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Galaxy Qwen Chat",
+  title: "Galaxy AI Chat",
   description: "Minimalistic Galaxy AI Chat powered by Puter.js",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -18,13 +24,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} galaxy-bg text-zinc-900 dark:text-white transition-colors h-screen flex flex-col antialiased`}>
-        {/* Load Puter.js inside the body with afterInteractive strategy */}
-        <Script src="https://js.puter.com/v2/" strategy="afterInteractive" />
-        
-        <AppProvider>
-          {children}
-        </AppProvider>
+      <head>
+        {/* Load Puter synchronously in head to prevent mobile initialization crashes */}
+        <script src="https://js.puter.com/v2/" async></script>
+      </head>
+      <body
+        className={`${inter.className} galaxy-bg text-zinc-900 dark:text-white transition-colors h-[100dvh] overflow-hidden antialiased`}
+      >
+        <AppProvider>{children}</AppProvider>
       </body>
     </html>
   );
