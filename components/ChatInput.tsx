@@ -7,6 +7,7 @@ import {
   Brain,
   Code2,
   Eye,
+  Globe,
   Image,
   MessageCircle,
   Plus,
@@ -44,6 +45,9 @@ export default function ChatInput() {
     stopGeneration,
     closeSidebar,
     customModes,
+    activeBackend,
+    useInternet,
+    setUseInternet,
   } = useAppContext();
 
   const handleSend = () => {
@@ -83,38 +87,40 @@ export default function ChatInput() {
     aiModels.find((m) => m.id === selectedModel)?.name || selectedModel;
   const isImageGen = aiModels.find((m) => m.id === selectedModel)?.isImageGen;
 
-  function isMobileDevice() {
-    return /Mobi|Android/i.test(navigator.userAgent);
-  }
-
   return (
     <div className="p-4 md:p-0 md:pb-8">
       <div className="max-w-3xl mx-auto">
         <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
-          {defaultQuickModes.map((mode) => {
-            const Icon = iconMap[mode.icon];
-            const isActive =
-              selectedModel === (customModes[mode.id] || mode.modelId);
-            return (
-              <div key={mode.id} className="relative group">
-                <button
-                  onClick={() => setQuickMode(mode.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap border ${
-                    isActive
-                      ? "bg-purple-600 text-white border-transparent shadow-md"
-                      : "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-purple-400"
-                  }`}
-                >
-                  {Icon && <Icon size={14} />} {mode.label}
-                </button>
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                  <div className="bg-zinc-900 dark:bg-white text-white dark:text-black text-xs rounded-lg px-3 py-1.5 shadow-lg whitespace-nowrap">
-                    {mode.tooltip}
+          {defaultQuickModes
+            .filter(
+              (m) =>
+                activeBackend === "puter" ||
+                !["Vision", "Image"].includes(m.label),
+            )
+            .map((mode) => {
+              const Icon = iconMap[mode.icon];
+              const isActive =
+                selectedModel === (customModes[mode.id] || mode.modelId);
+              return (
+                <div key={mode.id} className="relative group">
+                  <button
+                    onClick={() => setQuickMode(mode.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all whitespace-nowrap border ${
+                      isActive
+                        ? "bg-purple-600 text-white border-transparent shadow-md"
+                        : "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-purple-400"
+                    }`}
+                  >
+                    {Icon && <Icon size={14} />} {mode.label}
+                  </button>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                    <div className="bg-zinc-900 dark:bg-white text-white dark:text-black text-xs rounded-lg px-3 py-1.5 shadow-lg whitespace-nowrap">
+                      {mode.tooltip}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
 
         {attachment && (
@@ -140,10 +146,13 @@ export default function ChatInput() {
         <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
           <div className="px-4 pt-3 text-[10px] font-medium text-zinc-400 dark:text-zinc-500 tracking-wide flex justify-between items-center">
             <span>{currentModelName.toUpperCase()}</span>
-            {selectedModel.includes("vl") && (
-              <Eye size={12} className="text-purple-500" />
-            )}
-            {isImageGen && <Image size={12} className="text-blue-500" />}
+            <div className="flex gap-2 items-center">
+              {useInternet && <Globe size={12} className="text-blue-500" />}
+              {selectedModel.includes("vl") && (
+                <Eye size={12} className="text-purple-500" />
+              )}
+              {isImageGen && <Image size={12} className="text-blue-500" />}
+            </div>
           </div>
 
           <div className="flex items-end p-2 gap-1">
@@ -166,22 +175,29 @@ export default function ChatInput() {
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                // Desktop behavior: Enter sends, Shift+Enter makes new line
-                if (e.key === "Enter" && !e.shiftKey && !isMobileDevice()) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
+              onKeyDown={(e) =>
+                e.key === "Enter" &&
+                !e.shiftKey &&
+                (e.preventDefault(), handleSend())
+              }
               onFocus={closeSidebar}
               placeholder={
                 isImageGen
                   ? "Describe the image you want to generate..."
-                  : "Type a message..."
+                  : "Type a message... (Shift+Enter for new line)"
               }
               rows={1}
               className="flex-1 bg-transparent text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 resize-none py-2.5 px-3 focus:outline-none text-sm max-h-[120px] overflow-y-auto"
             />
+
+            {/* INTERNET SEARCH TOGGLE */}
+            <button
+              onClick={() => setUseInternet(!useInternet)}
+              className={`p-2.5 rounded-xl transition-colors ${useInternet ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-400"}`}
+              title="Search the Internet"
+            >
+              <Globe size={18} />
+            </button>
 
             <div>
               {isTyping ? (

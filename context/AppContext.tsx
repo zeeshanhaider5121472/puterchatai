@@ -75,9 +75,12 @@ interface AppContextType {
   setSystemPrompt: (prompt: string) => void;
   activeBackend: "puter" | "nvidia";
   setActiveBackend: (backend: "puter" | "nvidia") => void;
-  nvidiaApiKey: string;
-  setNvidiaApiKey: (key: string) => void;
+  nvidiaApiKey: string | undefined;
+  setNvidiaApiKey: (key: string | undefined) => void;
   visibleModels: typeof aiModels;
+  useInternet: boolean;
+  setUseInternet: (val: boolean) => void;
+  isNative: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -109,15 +112,18 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [activeBackend, setActiveBackend] = useState<"puter" | "nvidia">(
     "puter",
   );
-  const [nvidiaApiKey, setNvidiaApiKey] = useState(
-    "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",
+  const [nvidiaApiKey, setNvidiaApiKey] = useState<string | undefined>(
+    process.env.NEXT_PUBLIC_NVIDIA_API_KEY,
   );
+  const [useInternet, setUseInternet] = useState(false);
 
+  const isNative =
+    typeof window !== "undefined" &&
+    (window as any).Capacitor?.isNativePlatform();
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const activeChat = chats.find((c) => c.id === activeChatId);
   const messages = activeChat?.messages || [];
-
   const visibleModels = aiModels.filter((m) => m.backend === activeBackend);
 
   useEffect(() => {
@@ -130,15 +136,15 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (typeof window === "undefined") return;
       const strippedChats = chatsData.map((chat) => ({
         ...chat,
-        messages: chat.messages.map((msg) => {
-          if (msg.imageUrl)
-            return {
-              ...msg,
-              imageUrl: undefined,
-              content: `[Image uploaded] ${msg.textPreview}`,
-            };
-          return msg;
-        }),
+        messages: chat.messages.map((msg) =>
+          msg.imageUrl
+            ? {
+                ...msg,
+                imageUrl: undefined,
+                content: `[Image uploaded] ${msg.textPreview}`,
+              }
+            : msg,
+        ),
       }));
       const dataToSave = JSON.stringify({
         chats: strippedChats,
@@ -182,7 +188,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   }, [user, selectedModel]);
 
   const checkAuth = async () => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || isNative) return;
     let attempts = 0;
     while (!(window as any).puter?.auth && attempts < 12) {
       await new Promise((res) => setTimeout(res, 250));
@@ -203,15 +209,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loginToPuter = async () => {
     if (typeof window === "undefined") return;
+    if (isNative) {
+      alert(
+        "Puter login is not supported in the mobile app. Please use the NVIDIA API backend.",
+      );
+      return;
+    }
     let attempts = 0;
     while (!(window as any).puter?.ui && attempts < 20) {
       await new Promise((res) => setTimeout(res, 250));
       attempts++;
     }
     if (!(window as any).puter?.ui) {
-      alert(
-        "Puter SDK is taking too long to load. Please check your internet connection and refresh.",
-      );
+      alert("Puter SDK is taking too long to load.");
       return;
     }
     try {
@@ -219,8 +229,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (userData?.username) setUser({ username: userData.username });
       else await checkAuth();
     } catch (e: any) {
-      if (e.message?.includes("popup") || e.message?.includes("window"))
-        alert("Please allow popups for this site to sign in with Puter.");
+      if (e.message?.includes("popup")) alert("Please allow popups.");
     }
   };
 
@@ -244,24 +253,36 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     const init = async () => {
       const sTheme = localStorage.getItem("galaxy-theme");
       if (sTheme) setDarkMode(sTheme === "dark");
-      const sModel = localStorage.getItem("galaxy-model");
-      if (sModel) setSelectedModel(sModel);
-      const sConfig = localStorage.getItem("galaxy-ai-config");
-      if (sConfig) setAiConfig(JSON.parse(sConfig));
-      const sModes = localStorage.getItem("galaxy-custom-modes");
-      if (sModes) setCustomModes(JSON.parse(sModes));
-      const sPrompt = localStorage.getItem("galaxy-system-prompt");
-      if (sPrompt) setSystemPrompt(sPrompt);
       const sBackend = localStorage.getItem("galaxy-backend");
-      if (sBackend === "nvidia") setActiveBackend("nvidia");
       const sNvidiaKey = localStorage.getItem("galaxy-nvidia-key");
-      if (sNvidiaKey) setNvidiaApiKey(sNvidiaKey);
 
-      await checkAuth();
+      if (isNative) {
+        setActiveBackend("nvidia");
+        if (sNvidiaKey) setNvidiaApiKey(sNvidiaKey);
+        setTimeout(
+          () =>
+            alert(
+              "Welcome to Galaxy AI Mobile! Please add your NVIDIA API Key in Settings to start chatting.",
+            ),
+          500,
+        );
+      } else {
+        if (sBackend === "nvidia") setActiveBackend("nvidia");
+        if (sNvidiaKey) setNvidiaApiKey(sNvidiaKey);
+        const sModel = localStorage.getItem("galaxy-model");
+        if (sModel) setSelectedModel(sModel);
+        const sConfig = localStorage.getItem("galaxy-ai-config");
+        if (sConfig) setAiConfig(JSON.parse(sConfig));
+        const sModes = localStorage.getItem("galaxy-custom-modes");
+        if (sModes) setCustomModes(JSON.parse(sModes));
+        const sPrompt = localStorage.getItem("galaxy-system-prompt");
+        if (sPrompt) setSystemPrompt(sPrompt);
+        await checkAuth();
+      }
       setIsHydrated(true);
     };
     init();
-  }, []);
+  }, [isNative]);
 
   useEffect(() => {
     if (isHydrated) loadChats();
@@ -294,38 +315,36 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem("galaxy-backend", activeBackend);
-    // Auto-switch model if current model doesn't match active backend
     if (
       activeBackend === "puter" &&
       aiModels.find((m) => m.id === selectedModel)?.backend === "nvidia"
-    ) {
+    )
       setSelectedModel("qwen/qwen-plus");
-    } else if (
+    else if (
       activeBackend === "nvidia" &&
       aiModels.find((m) => m.id === selectedModel)?.backend === "puter"
-    ) {
+    )
       setSelectedModel("deepseek-ai/deepseek-v3");
-    }
   }, [activeBackend]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem("galaxy-nvidia-key", nvidiaApiKey);
+    if (nvidiaApiKey !== undefined) {
+      localStorage.setItem("galaxy-nvidia-key", nvidiaApiKey);
+    } else {
+      localStorage.removeItem("galaxy-nvidia-key");
+    }
   }, [nvidiaApiKey]);
-
   useEffect(() => {
     if (activeChatId && chats.length > 0) {
-      const activeChat = chats.find((c) => c.id === activeChatId);
-      if (activeChat && activeChat.modelId !== selectedModel) {
-        setSelectedModel(activeChat.modelId);
-      }
+      const ac = chats.find((c) => c.id === activeChatId);
+      if (ac && ac.modelId !== selectedModel) setSelectedModel(ac.modelId);
     }
   }, [activeChatId, chats]);
 
   const toggleDarkMode = () => setDarkMode(!darkMode);
   const closeSidebar = () => setIsSidebarOpen(false);
   const openSidebar = () => setIsSidebarOpen(true);
-
   const setQuickMode = (modeId: string) => {
     const modeModel =
       customModes[modeId] ||
@@ -344,7 +363,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     setActiveChatId(newChat.id);
     closeSidebar();
   };
-
   const deleteChat = (id: string) => {
     setChats((prev) => {
       const updated = prev.filter((c) => c.id !== id);
@@ -363,7 +381,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
   };
-
   const stopGeneration = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -378,10 +395,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       attachment?: { type: string; content: string } | null,
     ) => {
       if ((!text.trim() && !attachment) || isTyping) return;
-
       let targetChatId = activeChatId;
       const currentActiveChat = chats.find((c) => c.id === activeChatId);
-
       if (
         !targetChatId ||
         (currentActiveChat && currentActiveChat.modelId !== selectedModel)
@@ -403,8 +418,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       )?.isImageGen;
       const useNvidia =
         aiModels.find((m) => m.id === selectedModel)?.backend === "nvidia";
-
       setRobotMood("idle");
+
       let messageContent: string | MessageContent[];
       if (attachment?.type === "image") {
         messageContent = [
@@ -422,7 +437,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           text || (attachment?.type === "image" ? "Uploaded an image" : ""),
         imageUrl: attachment?.type === "image" ? attachment.content : undefined,
       };
-
       setChats((prev) =>
         prev.map((c) =>
           c.id === targetChatId
@@ -438,7 +452,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         ),
       );
       setIsTyping(true);
-
       abortControllerRef.current = new AbortController();
       const signal = abortControllerRef.current.signal;
 
@@ -446,9 +459,34 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         let aiResponseText = "";
         let thinkingText = "";
 
-        // ==========================================
-        // NVIDIA API ROUTING
-        // ==========================================
+        // --- INTERNET SEARCH LOGIC ---
+        let searchContext = "";
+        if (useInternet && text.trim() && !isImageGen) {
+          try {
+            const searchRes = await fetch(
+              `/api/search?q=${encodeURIComponent(text)}`,
+            );
+
+            // SAFELY PARSE SEARCH RESPONSE
+            if (searchRes.ok) {
+              const searchData = await searchRes.json();
+              if (searchData.results) searchContext = searchData.results;
+            } else {
+              console.error("Search API returned status:", searchRes.status);
+              searchContext =
+                "Web search failed (API error). Rely on general knowledge.";
+            }
+          } catch (e) {
+            console.error("Search API failed", e);
+            searchContext =
+              "Web search failed (network error). Rely on general knowledge.";
+          }
+        }
+
+        const finalSystemPrompt = searchContext
+          ? `${systemPrompt}\n\n[Live Web Search Results for "${text}"]:\n${searchContext}\n\nUse this information to answer the user's question if relevant.`
+          : systemPrompt;
+
         if (useNvidia) {
           if (!nvidiaApiKey)
             throw new Error(
@@ -456,11 +494,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             );
           if (isImageGen)
             throw new Error(
-              "Image generation is not supported by NVIDIA models in this app.",
+              "Image generation is not supported by NVIDIA models.",
             );
           if (attachment)
             throw new Error(
-              "Image uploads are not supported by NVIDIA models in this app.",
+              "Image uploads are not supported by NVIDIA models yet.",
             );
 
           const currentMessages =
@@ -469,9 +507,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             role: m.role === "system" ? "system" : m.role,
             content: typeof m.content === "string" ? m.content : m.textPreview,
           }));
-
-          if (systemPrompt.trim())
-            apiMessages.unshift({ role: "system", content: systemPrompt });
+          if (finalSystemPrompt.trim())
+            apiMessages.unshift({ role: "system", content: finalSystemPrompt });
 
           const response = await fetch("/api/nvidia", {
             method: "POST",
@@ -485,24 +522,35 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               temperature: aiConfig.temperature,
               max_tokens: aiConfig.maxTokens,
               top_p: 1,
-              stream: false, // <--- ADD THIS LINE TO FIX THE HANGING ISSUE
+              stream: false,
             }),
             signal: signal,
           });
 
-          if (!response.ok) {
-            const errorData = await response.json();
+          // SAFELY PARSE RESPONSE
+          let data;
+          try {
+            data = await response.json();
+          } catch (e) {
+            // If response isn't JSON (like a 405 HTML page), throw a clean error
             throw new Error(
-              errorData.error?.message ||
-                `NVIDIA API Error: ${response.status}`,
+              `Server returned status ${response.status}. Make sure your API route exists at /api/nvidia/route.ts`,
             );
           }
 
-          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(
+              data?.error?.message || `NVIDIA API Error: ${response.status}`,
+            );
+          }
+
           aiResponseText =
             data.choices?.[0]?.message?.content || "No response.";
-          if (data.choices?.[0]?.message?.reasoning_content)
+
+          // DeepSeek R1 reasoning extraction (if applicable)
+          if (data.choices?.[0]?.message?.reasoning_content) {
             thinkingText = data.choices[0].message.reasoning_content;
+          }
 
           const aiMessage: Message = {
             role: "assistant",
@@ -525,21 +573,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 : c,
             ),
           );
-        }
-        // ==========================================
-        // PUTER API ROUTING
-        // ==========================================
-        else {
+        } else {
           let attempts = 0;
           while (!(window as any).puter && attempts < 20) {
             await new Promise((res) => setTimeout(res, 250));
             attempts++;
           }
           const puter = (window as any).puter;
-          if (!puter)
-            throw new Error(
-              "Puter SDK failed to load. Please refresh the page.",
-            );
+          if (!puter) throw new Error("Puter SDK failed to load.");
 
           if (isImageGen) {
             const imageResponse = await puter.ai.txt2img(text, {
@@ -564,7 +605,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               imageUrl = URL.createObjectURL(imageResponse);
             else if (imageResponse?.src) imageUrl = imageResponse.src;
             else if (imageResponse?.url) imageUrl = imageResponse.url;
-
             const aiMessage: Message = {
               role: "assistant",
               content: "Generated Image",
@@ -586,8 +626,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               role: m.role,
               content: m.content,
             }));
-            if (systemPrompt.trim())
-              apiMessages.unshift({ role: "system", content: systemPrompt });
+            if (finalSystemPrompt.trim())
+              apiMessages.unshift({
+                role: "system",
+                content: finalSystemPrompt,
+              });
 
             const options: any = {
               model: selectedModel,
@@ -600,7 +643,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             };
             let response = await puter.ai.chat(apiMessages, options);
             if (signal.aborted) return;
-
             if (response?.message?.reasoning_content)
               thinkingText = response.message.reasoning_content;
             let rawContent =
@@ -616,7 +658,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             else if (typeof rawContent === "object" && rawContent !== null)
               aiResponseText = JSON.stringify(rawContent);
             if (!aiResponseText.trim()) aiResponseText = "No response.";
-
             const aiMessage: Message = {
               role: "assistant",
               content: aiResponseText,
@@ -679,6 +720,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       systemPrompt,
       activeBackend,
       nvidiaApiKey,
+      useInternet,
     ],
   );
 
@@ -717,6 +759,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         nvidiaApiKey,
         setNvidiaApiKey,
         visibleModels,
+        useInternet,
+        setUseInternet,
+        isNative,
       }}
     >
       {children}

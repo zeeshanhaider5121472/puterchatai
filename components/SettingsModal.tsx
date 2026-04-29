@@ -30,6 +30,7 @@ export default function SettingsModal({
     setActiveBackend,
     nvidiaApiKey,
     setNvidiaApiKey,
+    isNative,
   } = useAppContext();
   const [view, setView] = useState<"main" | "info">("main");
 
@@ -66,61 +67,68 @@ export default function SettingsModal({
                 animate={{ x: 0, opacity: 1 }}
                 className="space-y-8"
               >
-                {/* Backend Provider Toggle */}
-                <div>
-                  <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2 flex items-center gap-2">
-                    <Zap
-                      size={16}
-                      className={
-                        activeBackend === "nvidia"
-                          ? "text-green-500"
-                          : "text-purple-500"
-                      }
-                    />{" "}
-                    AI Provider
-                  </h3>
-                  <div className="flex gap-2 mb-4">
-                    <button
-                      onClick={() => setActiveBackend("puter")}
-                      className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors border ${activeBackend === "puter" ? "bg-purple-600 text-white border-transparent" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
-                    >
-                      Puter (Free)
-                    </button>
-                    <button
-                      onClick={() => setActiveBackend("nvidia")}
-                      className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors border ${activeBackend === "nvidia" ? "bg-green-600 text-white border-transparent" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
-                    >
-                      NVIDIA API
-                    </button>
-                  </div>
-
-                  {activeBackend === "nvidia" && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-zinc-500">
-                        Required to use DeepSeek and Meta models. Get a free key
-                        at{" "}
-                        <a
-                          href="https://build.nvidia.com/"
-                          target="_blank"
-                          className="text-green-600 underline"
-                        >
-                          build.nvidia.com
-                        </a>
-                        .
-                      </p>
-                      <input
-                        type="password"
-                        value={nvidiaApiKey}
-                        onChange={(e) => setNvidiaApiKey(e.target.value)}
-                        placeholder="nvapi-..."
-                        className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-4 py-2 text-sm text-zinc-900 dark:text-white focus:ring-1 focus:ring-green-500 focus:outline-none"
-                      />
+                {/* Backend Provider Toggle - Hide Puter option on Mobile APK */}
+                {!isNative && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2 flex items-center gap-2">
+                      <Zap
+                        size={16}
+                        className={
+                          activeBackend === "nvidia"
+                            ? "text-green-500"
+                            : "text-purple-500"
+                        }
+                      />{" "}
+                      AI Provider
+                    </h3>
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={() => setActiveBackend("puter")}
+                        className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors border ${activeBackend === "puter" ? "bg-purple-600 text-white border-transparent" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
+                      >
+                        Puter (Free)
+                      </button>
+                      <button
+                        onClick={() => setActiveBackend("nvidia")}
+                        className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors border ${activeBackend === "nvidia" ? "bg-green-600 text-white border-transparent" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
+                      >
+                        NVIDIA API
+                      </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {/* Puter Auth (Only if Puter is active) */}
-                {activeBackend === "puter" && (
+                {/* Show this directly if on Mobile APK or NVIDIA selected */}
+                {(isNative || activeBackend === "nvidia") && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2 flex items-center gap-2">
+                      <Zap size={16} className="text-green-500" /> NVIDIA API
+                      Key
+                    </h3>
+                    <p className="text-xs text-zinc-500 mb-2">
+                      Required to use DeepSeek and Meta models. Get a free key
+                      at{" "}
+                      <a
+                        href="https://build.nvidia.com/"
+                        target="_blank"
+                        className="text-green-600 underline"
+                      >
+                        build.nvidia.com
+                      </a>
+                      .
+                    </p>
+                    <input
+                      type="password"
+                      value={nvidiaApiKey}
+                      onChange={(e) => setNvidiaApiKey(e.target.value)}
+                      placeholder="nvapi-..."
+                      className="w-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg px-4 py-2 text-sm text-zinc-900 dark:text-white focus:ring-1 focus:ring-green-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+
+                {/* Puter Auth (Only if Puter is active AND not on Mobile APK) */}
+                {activeBackend === "puter" && !isNative && (
                   <div>
                     <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2 flex items-center gap-2">
                       <LogIn size={16} /> Account
@@ -159,8 +167,8 @@ export default function SettingsModal({
                   <ModelSelect />
                 </div>
 
-                {/* Quick Modes (Only if Puter is active, since NVIDIA doesn't have all these) */}
-                {activeBackend === "puter" && (
+                {/* Quick Modes (Only if Puter is active) */}
+                {activeBackend === "puter" && !isNative && (
                   <div>
                     <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-3 flex items-center gap-2">
                       <Sliders size={16} /> Quick Mode Mappings
