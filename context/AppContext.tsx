@@ -73,6 +73,11 @@ interface AppContextType {
   setCustomModes: (modes: Record<string, string>) => void;
   systemPrompt: string;
   setSystemPrompt: (prompt: string) => void;
+  activeBackend: "puter" | "nvidia";
+  setActiveBackend: (backend: "puter" | "nvidia") => void;
+  nvidiaApiKey: string;
+  setNvidiaApiKey: (key: string) => void;
+  visibleModels: typeof aiModels;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -101,11 +106,19 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [customModes, setCustomModes] = useState<Record<string, string>>({});
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [activeBackend, setActiveBackend] = useState<"puter" | "nvidia">(
+    "puter",
+  );
+  const [nvidiaApiKey, setNvidiaApiKey] = useState(
+    "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",
+  );
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const activeChat = chats.find((c) => c.id === activeChatId);
   const messages = activeChat?.messages || [];
+
+  const visibleModels = aiModels.filter((m) => m.backend === activeBackend);
 
   useEffect(() => {
     const defaults = modelDefaults[selectedModel];
@@ -170,8 +183,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const checkAuth = async () => {
     if (typeof window === "undefined") return;
-
-    // Wait for Puter to be available (max 3 seconds)
     let attempts = 0;
     while (!(window as any).puter?.auth && attempts < 12) {
       await new Promise((res) => setTimeout(res, 250));
@@ -183,7 +194,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (currentUser?.username) setUser({ username: currentUser.username });
         else setUser(null);
       } catch (e) {
-        // Not logged in, which is expected
         setUser(null);
       }
     } else {
@@ -193,53 +203,39 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loginToPuter = async () => {
     if (typeof window === "undefined") return;
-
-    // Wait for Puter to be available (max 5 seconds)
     let attempts = 0;
     while (!(window as any).puter?.ui && attempts < 20) {
       await new Promise((res) => setTimeout(res, 250));
       attempts++;
     }
-
     if (!(window as any).puter?.ui) {
       alert(
         "Puter SDK is taking too long to load. Please check your internet connection and refresh.",
       );
       return;
     }
-
     try {
       const userData = await (window as any).puter.ui.authenticateWithPuter();
-      if (userData?.username) {
-        setUser({ username: userData.username });
-      } else {
-        await checkAuth();
-      }
+      if (userData?.username) setUser({ username: userData.username });
+      else await checkAuth();
     } catch (e: any) {
-      console.error("Auth error:", e);
-      // Check if it's a popup blocked error
-      if (e.message?.includes("popup") || e.message?.includes("window")) {
+      if (e.message?.includes("popup") || e.message?.includes("window"))
         alert("Please allow popups for this site to sign in with Puter.");
-      }
     }
   };
 
   const signOutPuter = async () => {
     if (typeof window === "undefined") return;
-
     let attempts = 0;
     while (!(window as any).puter?.auth && attempts < 10) {
       await new Promise((res) => setTimeout(res, 250));
       attempts++;
     }
-
     if ((window as any).puter?.auth) {
       try {
         await (window as any).puter.auth.signOut();
         setUser(null);
-      } catch (e) {
-        console.error("Sign out error:", e);
-      }
+      } catch (e) {}
     }
   };
 
@@ -256,6 +252,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       if (sModes) setCustomModes(JSON.parse(sModes));
       const sPrompt = localStorage.getItem("galaxy-system-prompt");
       if (sPrompt) setSystemPrompt(sPrompt);
+      const sBackend = localStorage.getItem("galaxy-backend");
+      if (sBackend === "nvidia") setActiveBackend("nvidia");
+      const sNvidiaKey = localStorage.getItem("galaxy-nvidia-key");
+      if (sNvidiaKey) setNvidiaApiKey(sNvidiaKey);
+
       await checkAuth();
       setIsHydrated(true);
     };
@@ -265,36 +266,52 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (isHydrated) loadChats();
   }, [isHydrated, user]);
-
   useEffect(() => {
     if (isHydrated && chats.length > 0) saveChats(chats, activeChatId);
   }, [chats, activeChatId, isHydrated, saveChats]);
-
   useEffect(() => {
     if (isHydrated && typeof window !== "undefined")
       localStorage.setItem("galaxy-model", selectedModel);
   }, [selectedModel, isHydrated]);
-
   useEffect(() => {
     if (isHydrated && typeof window !== "undefined")
       localStorage.setItem("galaxy-ai-config", JSON.stringify(aiConfig));
   }, [aiConfig, isHydrated]);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     document.documentElement.classList.toggle("dark", darkMode);
     localStorage.setItem("galaxy-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem("galaxy-custom-modes", JSON.stringify(customModes));
   }, [customModes]);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     localStorage.setItem("galaxy-system-prompt", systemPrompt);
   }, [systemPrompt]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("galaxy-backend", activeBackend);
+    // Auto-switch model if current model doesn't match active backend
+    if (
+      activeBackend === "puter" &&
+      aiModels.find((m) => m.id === selectedModel)?.backend === "nvidia"
+    ) {
+      setSelectedModel("qwen/qwen-plus");
+    } else if (
+      activeBackend === "nvidia" &&
+      aiModels.find((m) => m.id === selectedModel)?.backend === "puter"
+    ) {
+      setSelectedModel("deepseek-ai/deepseek-v3");
+    }
+  }, [activeBackend]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("galaxy-nvidia-key", nvidiaApiKey);
+  }, [nvidiaApiKey]);
 
   useEffect(() => {
     if (activeChatId && chats.length > 0) {
@@ -341,9 +358,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setActiveChatId(freshChat.id);
         return [freshChat];
       } else {
-        if (activeChatId === id) {
-          setActiveChatId(updated[0].id);
-        }
+        if (activeChatId === id) setActiveChatId(updated[0].id);
         return updated;
       }
     });
@@ -386,6 +401,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const isImageGen = aiModels.find(
         (m) => m.id === selectedModel,
       )?.isImageGen;
+      const useNvidia =
+        aiModels.find((m) => m.id === selectedModel)?.backend === "nvidia";
 
       setRobotMood("idle");
       let messageContent: string | MessageContent[];
@@ -426,115 +443,66 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const signal = abortControllerRef.current.signal;
 
       try {
-        let attempts = 0;
-        while (!(window as any).puter && attempts < 20) {
-          await new Promise((res) => setTimeout(res, 250));
-          attempts++;
-        }
-        const puter = (window as any).puter;
-        if (!puter)
-          throw new Error("Puter SDK failed to load. Please refresh the page.");
-
         let aiResponseText = "";
         let thinkingText = "";
 
-        if (isImageGen) {
-          const imageResponse = await puter.ai.txt2img(text, {
-            model: selectedModel,
-          });
-          if (signal.aborted) return;
-
-          let imageUrl = "";
-
-          if (typeof imageResponse === "string") {
-            if (
-              imageResponse.startsWith("http") ||
-              imageResponse.startsWith("data:")
-            ) {
-              imageUrl = imageResponse;
-            } else if (
-              imageResponse.includes("<img") &&
-              imageResponse.includes('src="')
-            ) {
-              const match = imageResponse.match(/src="([^"]+)"/);
-              imageUrl = match ? match[1] : "";
-            } else {
-              imageUrl = `data:image/png;base64,${imageResponse}`;
-            }
-          } else if (imageResponse instanceof Blob) {
-            imageUrl = URL.createObjectURL(imageResponse);
-          } else if (imageResponse?.src) {
-            imageUrl = imageResponse.src;
-          } else if (imageResponse?.url) {
-            imageUrl = imageResponse.url;
-          } else {
-            console.error(
-              "Unexpected image generation response:",
-              imageResponse,
+        // ==========================================
+        // NVIDIA API ROUTING
+        // ==========================================
+        if (useNvidia) {
+          if (!nvidiaApiKey)
+            throw new Error(
+              "NVIDIA API Key is missing. Please add it in Settings.",
             );
-          }
+          if (isImageGen)
+            throw new Error(
+              "Image generation is not supported by NVIDIA models in this app.",
+            );
+          if (attachment)
+            throw new Error(
+              "Image uploads are not supported by NVIDIA models in this app.",
+            );
 
-          const aiMessage: Message = {
-            role: "assistant",
-            content: "Generated Image",
-            textPreview: "Generated Image",
-            imageUrl: imageUrl,
-          };
-          setChats((prev) =>
-            prev.map((c) =>
-              c.id === targetChatId
-                ? { ...c, messages: [...c.messages, aiMessage] }
-                : c,
-            ),
-          );
-          return;
-        } else {
-          // ---- RESTORED TEXT/CHAT LOGIC ----
           const currentMessages =
             chats.find((c) => c.id === targetChatId)?.messages || [];
           const apiMessages = [...currentMessages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
+            role: m.role === "system" ? "system" : m.role,
+            content: typeof m.content === "string" ? m.content : m.textPreview,
           }));
 
-          if (systemPrompt.trim()) {
+          if (systemPrompt.trim())
             apiMessages.unshift({ role: "system", content: systemPrompt });
-          }
 
-          const options: any = {
-            model: selectedModel,
-            messages: apiMessages,
-            temperature: aiConfig.temperature,
-            max_tokens: aiConfig.maxTokens,
-            frequency_penalty: aiConfig.frequencyPenalty,
-            presence_penalty: aiConfig.presencePenalty,
+          const response = await fetch("/api/nvidia", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${nvidiaApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: selectedModel,
+              messages: apiMessages,
+              temperature: aiConfig.temperature,
+              max_tokens: aiConfig.maxTokens,
+              top_p: 1,
+              stream: false, // <--- ADD THIS LINE TO FIX THE HANGING ISSUE
+            }),
             signal: signal,
-          };
+          });
 
-          // ALWAYS use apiMessages array to maintain conversation memory
-          let response = await puter.ai.chat(apiMessages, options);
-
-          if (signal.aborted) return;
-
-          if (response?.message?.reasoning_content) {
-            thinkingText = response.message.reasoning_content;
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(
+              errorData.error?.message ||
+                `NVIDIA API Error: ${response.status}`,
+            );
           }
 
-          let rawContent =
-            typeof response === "string"
-              ? response
-              : response?.message?.content || "No response.";
-          if (typeof rawContent === "string") {
-            aiResponseText = rawContent;
-          } else if (Array.isArray(rawContent)) {
-            aiResponseText = rawContent
-              .filter((part: any) => part.type === "text" && part.text)
-              .map((part: any) => part.text)
-              .join("\n");
-          } else if (typeof rawContent === "object" && rawContent !== null) {
-            aiResponseText = JSON.stringify(rawContent);
-          }
-          if (!aiResponseText.trim()) aiResponseText = "No response.";
+          const data = await response.json();
+          aiResponseText =
+            data.choices?.[0]?.message?.content || "No response.";
+          if (data.choices?.[0]?.message?.reasoning_content)
+            thinkingText = data.choices[0].message.reasoning_content;
 
           const aiMessage: Message = {
             role: "assistant",
@@ -542,7 +510,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             textPreview: aiResponseText,
             thinkingContent: thinkingText || null,
           };
-
           setChats((prev) =>
             prev.map((c) =>
               c.id === targetChatId
@@ -550,9 +517,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                     ...c,
                     messages: [
                       ...c.messages.filter(
-                        (m) =>
-                          m.role !== "assistant" ||
-                          m.textPreview !== "Thinking...",
+                        (m) => m.textPreview !== "Thinking...",
                       ),
                       aiMessage,
                     ],
@@ -560,6 +525,122 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                 : c,
             ),
           );
+        }
+        // ==========================================
+        // PUTER API ROUTING
+        // ==========================================
+        else {
+          let attempts = 0;
+          while (!(window as any).puter && attempts < 20) {
+            await new Promise((res) => setTimeout(res, 250));
+            attempts++;
+          }
+          const puter = (window as any).puter;
+          if (!puter)
+            throw new Error(
+              "Puter SDK failed to load. Please refresh the page.",
+            );
+
+          if (isImageGen) {
+            const imageResponse = await puter.ai.txt2img(text, {
+              model: selectedModel,
+            });
+            if (signal.aborted) return;
+            let imageUrl = "";
+            if (typeof imageResponse === "string") {
+              if (
+                imageResponse.startsWith("http") ||
+                imageResponse.startsWith("data:")
+              )
+                imageUrl = imageResponse;
+              else if (
+                imageResponse.includes("<img") &&
+                imageResponse.includes('src="')
+              ) {
+                const match = imageResponse.match(/src="([^"]+)"/);
+                imageUrl = match ? match[1] : "";
+              } else imageUrl = `data:image/png;base64,${imageResponse}`;
+            } else if (imageResponse instanceof Blob)
+              imageUrl = URL.createObjectURL(imageResponse);
+            else if (imageResponse?.src) imageUrl = imageResponse.src;
+            else if (imageResponse?.url) imageUrl = imageResponse.url;
+
+            const aiMessage: Message = {
+              role: "assistant",
+              content: "Generated Image",
+              textPreview: "Generated Image",
+              imageUrl: imageUrl,
+            };
+            setChats((prev) =>
+              prev.map((c) =>
+                c.id === targetChatId
+                  ? { ...c, messages: [...c.messages, aiMessage] }
+                  : c,
+              ),
+            );
+            return;
+          } else {
+            const currentMessages =
+              chats.find((c) => c.id === targetChatId)?.messages || [];
+            const apiMessages = [...currentMessages, userMessage].map((m) => ({
+              role: m.role,
+              content: m.content,
+            }));
+            if (systemPrompt.trim())
+              apiMessages.unshift({ role: "system", content: systemPrompt });
+
+            const options: any = {
+              model: selectedModel,
+              messages: apiMessages,
+              temperature: aiConfig.temperature,
+              max_tokens: aiConfig.maxTokens,
+              frequency_penalty: aiConfig.frequencyPenalty,
+              presence_penalty: aiConfig.presencePenalty,
+              signal: signal,
+            };
+            let response = await puter.ai.chat(apiMessages, options);
+            if (signal.aborted) return;
+
+            if (response?.message?.reasoning_content)
+              thinkingText = response.message.reasoning_content;
+            let rawContent =
+              typeof response === "string"
+                ? response
+                : response?.message?.content || "No response.";
+            if (typeof rawContent === "string") aiResponseText = rawContent;
+            else if (Array.isArray(rawContent))
+              aiResponseText = rawContent
+                .filter((part: any) => part.type === "text" && part.text)
+                .map((part: any) => part.text)
+                .join("\n");
+            else if (typeof rawContent === "object" && rawContent !== null)
+              aiResponseText = JSON.stringify(rawContent);
+            if (!aiResponseText.trim()) aiResponseText = "No response.";
+
+            const aiMessage: Message = {
+              role: "assistant",
+              content: aiResponseText,
+              textPreview: aiResponseText,
+              thinkingContent: thinkingText || null,
+            };
+            setChats((prev) =>
+              prev.map((c) =>
+                c.id === targetChatId
+                  ? {
+                      ...c,
+                      messages: [
+                        ...c.messages.filter(
+                          (m) =>
+                            m.role !== "assistant" ||
+                            m.textPreview !== "Thinking...",
+                        ),
+                        aiMessage,
+                      ],
+                    }
+                  : c,
+              ),
+            );
+          }
         }
       } catch (error: any) {
         if (error.name === "AbortError") return;
@@ -589,7 +670,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         abortControllerRef.current = null;
       }
     },
-    [activeChatId, chats, selectedModel, isTyping, aiConfig, systemPrompt],
+    [
+      activeChatId,
+      chats,
+      selectedModel,
+      isTyping,
+      aiConfig,
+      systemPrompt,
+      activeBackend,
+      nvidiaApiKey,
+    ],
   );
 
   return (
@@ -622,6 +712,11 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         setCustomModes,
         systemPrompt,
         setSystemPrompt,
+        activeBackend,
+        setActiveBackend,
+        nvidiaApiKey,
+        setNvidiaApiKey,
+        visibleModels,
       }}
     >
       {children}
