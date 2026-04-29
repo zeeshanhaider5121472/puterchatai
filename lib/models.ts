@@ -98,7 +98,7 @@ export const aiModels: Model[] = [
   { id: 'claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Claude', backend: 'puter' },
   
   { id: 'deepseek-ai/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', backend: 'puter' },
-  { id: 'deepseek-ai/deepseek-v4-flash', name: 'DeepSeek V3 Chat', provider: 'DeepSeek', backend: 'puter' },
+  { id: 'deepseek-ai/deepseek-v4-flash', name: 'DeepSeek V4 flash', provider: 'DeepSeek', backend: 'puter' },
 
 
 
@@ -106,7 +106,7 @@ export const aiModels: Model[] = [
   { id: 'deepseek-ai/deepseek-v4-pro', name: 'DeepSeek V4 Pro', provider: 'DeepSeek', backend: 'nvidia' },
   { id: 'deepseek-ai/deepseek-v4-flash', name: 'DeepSeek V4 flash', provider: 'DeepSeek', backend: 'nvidia' },
   { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', name: 'Nvidia nemo-3-nano (Reasoning)', provider: 'Nvidia', backend: 'nvidia' },
-  { id: 'minimax/minimax-m2.7', name: 'minimax-m2.7', provider: 'minimax', backend: 'nvidia' },
+  { id: 'minimaxai/minimax-m2.7', name: 'minimax-m2.7', provider: 'minimax', backend: 'nvidia' },
   { id: 'z-ai/glm-5.1', name: 'Nvidia GLM 5.1', provider: 'GLM', backend: 'nvidia' },
   
   // --- META LLAMA MODELS (NVIDIA) ---
