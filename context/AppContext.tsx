@@ -209,27 +209,56 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const loginToPuter = async () => {
     if (typeof window === "undefined") return;
+
+    // MOBILE FIX: Use InAppBrowser so Puter popup doesn't crash the app
     if (isNative) {
-      alert(
-        "Puter login is not supported in the mobile app. Please use the NVIDIA API backend.",
-      );
+      try {
+        const { InAppBrowser } = await import('@capgo/inappbrowser');
+        
+        // Save original window.open
+        const originalOpen = window.open;
+        
+        // Hijack window.open to use InAppBrowser
+        window.open = (url?: string | URL | null, target?: string, features?: string) => {
+          if (url) {
+            InAppBrowser.open({ url: url.toString() });
+          }
+          return null;
+        };
+
+        // Trigger Puter Login
+        const userData = await (window as any).puter.ui.authenticateWithPuter();
+        
+        // Close InAppBrowser and restore window.open
+        InAppBrowser.close();
+        window.open = originalOpen;
+
+        if (userData?.username) setUser({ username: userData.username });
+        else await checkAuth();
+
+      } catch (e: any) {
+        console.error("Mobile Puter Auth Error:", e);
+        // Ensure window.open is restored even if it fails
+        window.open = (url?: string | URL | null, target?: string, features?: string) => null;
+        alert("Login failed or was cancelled. (Note: Puter's popup login is experimental on APK).");
+      }
       return;
     }
-    let attempts = 0;
-    while (!(window as any).puter?.ui && attempts < 20) {
-      await new Promise((res) => setTimeout(res, 250));
-      attempts++;
+
+    // --- WEB VERSION ---
+    let attempts = 0; 
+    while (!(window as any).puter?.ui && attempts < 20) { 
+      await new Promise(res => setTimeout(res, 250)); attempts++; 
     }
-    if (!(window as any).puter?.ui) {
-      alert("Puter SDK is taking too long to load.");
-      return;
+    if (!(window as any).puter?.ui) { 
+      alert("Puter SDK is taking too long to load."); return; 
     }
-    try {
-      const userData = await (window as any).puter.ui.authenticateWithPuter();
-      if (userData?.username) setUser({ username: userData.username });
-      else await checkAuth();
-    } catch (e: any) {
-      if (e.message?.includes("popup")) alert("Please allow popups.");
+    try { 
+      const userData = await (window as any).puter.ui.authenticateWithPuter(); 
+      if (userData?.username) setUser({ username: userData.username }); 
+      else await checkAuth(); 
+    } catch (e: any) { 
+      if (e.message?.includes("popup") || e.message?.includes("window")) alert("Please allow popups."); 
     }
   };
 
@@ -251,34 +280,21 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const init = async () => {
-      const sTheme = localStorage.getItem("galaxy-theme");
-      if (sTheme) setDarkMode(sTheme === "dark");
-      const sBackend = localStorage.getItem("galaxy-backend");
+      const sTheme = localStorage.getItem("galaxy-theme"); if (sTheme) setDarkMode(sTheme === "dark");
+      const sBackend = localStorage.getItem("galaxy-backend"); 
       const sNvidiaKey = localStorage.getItem("galaxy-nvidia-key");
 
-      if (isNative) {
-        setActiveBackend("nvidia");
-        if (sNvidiaKey) setNvidiaApiKey(sNvidiaKey);
-        setTimeout(
-          () =>
-            alert(
-              "Welcome to Galaxy AI Mobile! Please add your NVIDIA API Key in Settings to start chatting.",
-            ),
-          500,
-        );
-      } else {
-        if (sBackend === "nvidia") setActiveBackend("nvidia");
-        if (sNvidiaKey) setNvidiaApiKey(sNvidiaKey);
-        const sModel = localStorage.getItem("galaxy-model");
-        if (sModel) setSelectedModel(sModel);
-        const sConfig = localStorage.getItem("galaxy-ai-config");
-        if (sConfig) setAiConfig(JSON.parse(sConfig));
-        const sModes = localStorage.getItem("galaxy-custom-modes");
-        if (sModes) setCustomModes(JSON.parse(sModes));
-        const sPrompt = localStorage.getItem("galaxy-system-prompt");
-        if (sPrompt) setSystemPrompt(sPrompt);
-        await checkAuth();
-      }
+      // REMOVED: if (isNative) block. It now loads exactly like the web version.
+      if (sBackend === 'nvidia') setActiveBackend('nvidia');
+      if (sNvidiaKey) setNvidiaApiKey(sNvidiaKey);
+
+      
+      const sModel = localStorage.getItem("galaxy-model"); if (sModel) setSelectedModel(sModel);
+      const sConfig = localStorage.getItem("galaxy-ai-config"); if (sConfig) setAiConfig(JSON.parse(sConfig));
+      const sModes = localStorage.getItem("galaxy-custom-modes"); if (sModes) setCustomModes(JSON.parse(sModes));
+      const sPrompt = localStorage.getItem("galaxy-system-prompt"); if (sPrompt) setSystemPrompt(sPrompt);
+      
+      await checkAuth(); // This will try to check Puter auth
       setIsHydrated(true);
     };
     init();

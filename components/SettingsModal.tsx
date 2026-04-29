@@ -67,36 +67,33 @@ export default function SettingsModal({
                 animate={{ x: 0, opacity: 1 }}
                 className="space-y-8"
               >
-                {/* Backend Provider Toggle - Hide Puter option on Mobile APK */}
-                {!isNative && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2 flex items-center gap-2">
-                      <Zap
-                        size={16}
-                        className={
-                          activeBackend === "nvidia"
-                            ? "text-green-500"
-                            : "text-purple-500"
-                        }
-                      />{" "}
-                      AI Provider
-                    </h3>
-                    <div className="flex gap-2 mb-4">
-                      <button
-                        onClick={() => setActiveBackend("puter")}
-                        className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors border ${activeBackend === "puter" ? "bg-purple-600 text-white border-transparent" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
-                      >
-                        Puter (Free)
-                      </button>
-                      <button
-                        onClick={() => setActiveBackend("nvidia")}
-                        className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors border ${activeBackend === "nvidia" ? "bg-green-600 text-white border-transparent" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
-                      >
-                        NVIDIA API
-                      </button>
-                    </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2 flex items-center gap-2">
+                    <Zap
+                      size={16}
+                      className={
+                        activeBackend === "nvidia"
+                          ? "text-green-500"
+                          : "text-purple-500"
+                      }
+                    />{" "}
+                    AI Provider
+                  </h3>
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      onClick={() => setActiveBackend("puter")}
+                      className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors border ${activeBackend === "puter" ? "bg-purple-600 text-white border-transparent" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
+                    >
+                      Puter (Free)
+                    </button>
+                    <button
+                      onClick={() => setActiveBackend("nvidia")}
+                      className={`flex-1 py-2.5 text-sm font-medium rounded-xl transition-colors border ${activeBackend === "nvidia" ? "bg-green-600 text-white border-transparent" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700"}`}
+                    >
+                      NVIDIA API
+                    </button>
                   </div>
-                )}
+                </div>
 
                 {/* Show this directly if on Mobile APK or NVIDIA selected */}
                 {(isNative || activeBackend === "nvidia") && (
@@ -128,7 +125,7 @@ export default function SettingsModal({
                 )}
 
                 {/* Puter Auth (Only if Puter is active AND not on Mobile APK) */}
-                {activeBackend === "puter" && !isNative && (
+                {activeBackend === "puter" &&  (
                   <div>
                     <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 mb-2 flex items-center gap-2">
                       <LogIn size={16} /> Account
